@@ -34,7 +34,7 @@ columns = ["crash_date", "borough", "zip_code", "latitude", "longitude", "on_str
 
 # Optional: only recent rows. Remove these two lines to take all dates.
 date_column = "crash_date"
-days_back = 90
+days_back = 30
 
 max_rows = 20000                # a safety limit on how many rows to fetch
 
