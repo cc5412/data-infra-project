@@ -14,7 +14,7 @@
 #short name: lowercase, no spaces
 
 [project]
-name = "car_crashes"
+name = "nyc_crashes"
 
 # -----------------------------------------------------------------------------
 # 1. SOURCE: where the data comes from
