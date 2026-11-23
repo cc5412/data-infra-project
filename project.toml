@@ -12,7 +12,7 @@
 # =============================================================================
 
 [project]
-name = "car_crashes"        # a short name: lowercase, no spaces
+name = "car_crashes"        -- a short name: lowercase, no spaces
 
 
 # -----------------------------------------------------------------------------
