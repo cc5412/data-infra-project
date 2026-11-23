@@ -5,7 +5,7 @@
 
 ## Links
 
-**A successful run of your pipeline** (Actions tab → the green run → copy the address):
+**A successful run of your pipeline** (Actions tab → the green run → copy the address): https://github.com/cc5412/data-infra-project/actions/runs/45135970769
 
 **A deliberately failed run** (Run workflow with "Break the data on purpose" ticked → the red run → copy the address):
 

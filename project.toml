@@ -12,7 +12,7 @@
 # =============================================================================
 
 [project]
-name = "heat_complaints"        # a short name: lowercase, no spaces
+name = "car_crashes"        # a short name: lowercase, no spaces
 
 
 # -----------------------------------------------------------------------------
@@ -24,17 +24,17 @@ type = "socrata"                # "socrata" for NYC Open Data and most city port
 
 # The API address: on the dataset's page, click Export (or API) and copy the
 # "API Endpoint" ending in .json
-url = "https://data.cityofnewyork.us/resource/erm2-nwe9.json"
+url = "https://data.cityofnewyork.us/resource/h9gi-nx95.json"
 
 # The columns to keep (use the names that --preview shows you)
-columns = ["unique_key", "created_date", "complaint_type", "borough", "incident_zip"]
+columns = ["crash_date", "borough", "zip_code", "latitude", "longitude", "on_street_name", "number_of_persons_injured", "number_of_persons_killed", "number_of_pedestrians_killed", "number_of_cyclist_killed", "number_of_motorist_killed", "collision_id"]
 
 # Optional: only some rows. Leave as "" to take everything.
-filter = "complaint_type = 'HEAT/HOT WATER'"
+# filter = "complaint_type = 'HEAT/HOT WATER'"
 
 # Optional: only recent rows. Remove these two lines to take all dates.
-date_column = "created_date"
-days_back = 7
+date_column = "crash_date"
+days_back = 366
 
 max_rows = 20000                # a safety limit on how many rows to fetch
 
@@ -46,32 +46,77 @@ max_rows = 20000                # a safety limit on how many rows to fetch
 #    If any check fails, the run stops and nothing is published.
 # -----------------------------------------------------------------------------
 [[checks]]
-name = "enough rows arrived"
-why  = "a near-empty download means something went wrong at the source"
-sql  = "SELECT CASE WHEN count(*) >= 100 THEN 0 ELSE 1 END FROM raw"
+name = "completeness: crash_date is not missing"
+why  = "Missing crash dates would not allow analysis of collisions over time or to be able to assign them to a specific reporting period."
+sql  = "SELECT count(*) FROM raw WHERE crash_date IS NULL"
 
 [[checks]]
-name = "unique_key is never missing or repeated"
-why  = "each complaint must be counted exactly once"
-sql  = "SELECT count(*) - count(DISTINCT unique_key) FROM raw"
+name = "keys unique: collision_id is unique"
+why  = "Duplicate collision IDs could cause crashes to be counted more than once, inflating collision totals and related statistics."
+sql  = "SELECT count(*) - count(DISTINCT collision_id) FROM raw"
 
 [[checks]]
-name = "borough is one of the five (or UNSPECIFIED)"
-why  = "a misspelled borough would split one borough's totals in two"
+name = "valid range: injury and fatality counts are nonnegative"
+why  = "Negative injury or fatality counts would be errors and distort calculations of the number of people injured or killed."
 sql  = """
 SELECT count(*) FROM raw
-WHERE borough NOT IN ('BRONX', 'BROOKLYN', 'MANHATTAN', 'QUEENS', 'STATEN ISLAND', 'UNSPECIFIED')
+        WHERE number_of_persons_injured < 0
+        OR number_of_persons_killed < 0
+        OR number_of_pedestrians_killed < 0
+        OR number_of_cyclist_killed < 0
+        OR number_of_motorist_killed < 0
 """
 
 [[checks]]
-name = "no complaints dated in the future"
-why  = "a future date means a data entry error"
-sql  = "SELECT count(*) FROM raw WHERE created_date > now()::TIMESTAMP + INTERVAL 1 DAY"
+name = "allowed values: zip_code is a valid NYC ZIP code or NULL"
+why  = "Unexpected zip codes names could lead to incorrect geographic classifications and inconsistent comparisons."
+sql  = """
+SELECT count(*) FROM raw
+        WHERE zip_code IS NOT NULL
+        AND zip_code NOT IN (
+        '10453', '10457', '10460', '10458', '10467', '10468',
+        '10451', '10452', '10456', '10454', '10455', '10459', '10474',
+        '10463', '10471', '10466', '10469', '10470', '10475',
+        '10461', '10462', '10464', '10465', '10472', '10473',
+        '11212', '11213', '11216', '11233', '11238', '11209',
+        '11214', '11228', '11204', '11218', '11219', '11230',
+        '11234', '11236', '11239', '11223', '11224', '11229',
+        '11235', '11201', '11205', '11215', '11217', '11231',
+        '11203', '11210', '11225', '11226', '11207', '11208',
+        '11211', '11222', '11220', '11232', '11206', '11221',
+        '11237', '10026', '10027', '10030', '10037', '10039',
+        '10001', '10011', '10018', '10019', '10020', '10036',
+        '10029', '10035', '10010', '10016', '10017', '10022',
+        '10012', '10013', '10014', '10004', '10005', '10006',
+        '10007', '10038', '10280', '10002', '10003', '10009',
+        '10021', '10028', '10044', '10065', '10075', '10128',
+        '10023', '10024', '10025', '10031', '10032', '10033',
+        '10034', '10040', '11361', '11362', '11363', '11364',
+        '11354', '11355', '11356', '11357', '11358', '11359',
+        '11360', '11365', '11366', '11367', '11412', '11423',
+        '11432', '11433', '11434', '11435', '11436', '11101',
+        '11102', '11103', '11104', '11105', '11106', '11374',
+        '11375', '11379', '11385', '11691', '11692', '11693',
+        '11694', '11695', '11697', '11004', '11005', '11411',
+        '11413', '11422', '11426', '11427', '11428', '11429',
+        '11414', '11415', '11416', '11417', '11418', '11419',
+        '11420', '11421', '11368', '11369', '11370', '11372',
+        '11373', '11377', '11378', '10302', '10303', '10310',
+        '10306', '10307', '10308', '10309', '10312', '10301',
+        '10304', '10305', '10314', '11249', '11430', '10168',
+        '10169', '10000', '99999'
+        )
+"""
 
 [[checks]]
-name = "fresh: newest complaint is under 3 days old"
-why  = "if the city stops updating, we should notice, not publish stale data"
-sql  = "SELECT CASE WHEN max(created_date) >= now()::TIMESTAMP - INTERVAL 3 DAY THEN 0 ELSE 1 END FROM raw"
+name = "freshness: newest crash is within 30 days"
+why  = "If the most recent crash date is more than 30 days old, it could indicate that the NYC Open Data dataset has stopped updating or that the pipeline has failed."
+sql  = """
+SELECT CASE
+        WHEN max(crash_date) >= current_date - INTERVAL 30 DAY
+        THEN 0 ELSE 1 END
+        FROM raw
+"""
 
 
 # -----------------------------------------------------------------------------
@@ -84,46 +129,60 @@ sql  = "SELECT CASE WHEN max(created_date) >= now()::TIMESTAMP - INTERVAL 3 DAY 
 
 # (a) The clean table: one row per complaint
 [[tables]]
-name = "heat_complaints"
-sql  = """
-SELECT unique_key, created_date, created_date::DATE AS created_day, borough, incident_zip
+# (a) The clean table: one row per crash
+[[tables]]
+name = "car_crashes"
+sql = """
+SELECT
+    crash_date,
+    borough,
+    zip_code,
+    latitude,
+    longitude,
+    on_street_name,
+    number_of_persons_injured,
+    number_of_persons_killed,
+    number_of_pedestrians_killed,
+    number_of_cyclist_killed,
+    number_of_motorist_killed,
+    collision_id
 FROM raw
-WHERE borough <> 'UNSPECIFIED'      -- can't be placed in a borough: dropped on purpose
+WHERE zip_code <> 'UNSPECIFIED'      -- can't be placed in a zip code: dropped on purpose
 """
 
-# (b) A trend: complaints per borough per day
+# (b) A trend: crashes per zip code per day
 [[tables]]
-name = "heat_by_borough_day"
+name = "crashes_by_zip_day"
 sql  = """
-SELECT borough, created_day, count(*) AS complaints
-FROM heat_complaints
-GROUP BY borough, created_day
+SELECT zip_code, crash_date, count(*) AS crashes
+FROM car_crashes
+GROUP BY zip_code, crash_date
 """
 
 # (c) Key metrics: one row per borough
 [[tables]]
-name = "heat_borough_summary"
+name = "crashes_borough_summary"
 sql  = """
 SELECT borough,
-       count(*)                                             AS total_complaints,
-       round(count(*) / count(DISTINCT created_day), 1)     AS avg_per_day,
+       count(*)                                             AS total_crashes,
+       round(count(*) / count(DISTINCT crash_date), 1)      AS avg_per_day,
        round(100.0 * count(*) / sum(count(*)) OVER (), 1)   AS pct_of_city,
-       count(DISTINCT incident_zip)                         AS zip_codes_affected
-FROM heat_complaints
+       count(DISTINCT zip_code)                             AS zip_codes_affected
+FROM car_crashes
 GROUP BY borough
-ORDER BY total_complaints DESC
+ORDER BY total_crashes DESC
 """
 
-# (d) A ranking: the 20 ZIP codes with the most complaints
+# (d) A ranking: the 10 deadliest ZIP codes for car crashes
 [[tables]]
-name = "heat_top_zips"
+name = "crashes_deaths_top_zips"
 sql  = """
-SELECT incident_zip, borough, count(*) AS complaints
-FROM heat_complaints
-WHERE incident_zip IS NOT NULL
-GROUP BY incident_zip, borough
-ORDER BY complaints DESC
-LIMIT 20
+SELECT zip_code, borough, number_of_persons_killed, count(*) AS crashes
+FROM car_crashes
+WHERE number_of_persons_killed > 0
+GROUP BY zip_code, borough
+ORDER BY number_of_persons_killed DESC
+LIMIT 10
 """
 
 
@@ -133,23 +192,28 @@ LIMIT 20
 #    tables above. The answers print in the run log. Try your findings here!
 # -----------------------------------------------------------------------------
 [[report]]
-question = "Which borough has the most heat complaints?"
+question = "Which zip code has the most motor vehicle collisions?"
 sql = """
-SELECT borough, total_complaints, avg_per_day, pct_of_city
-FROM heat_borough_summary
-ORDER BY total_complaints DESC
+SELECT zip_code, total_crashes, avg_per_day, pct_of_city
+FROM crashes_borough_summary
+ORDER BY total_crashes DESC
 """
 
 [[report]]
-question = "Which five ZIP codes are hardest hit?"
-sql = "SELECT incident_zip, borough, complaints FROM heat_top_zips ORDER BY complaints DESC LIMIT 5"
+question = "Which ZIP code has the most fatalities for car crashes?"
+sql = """
+SELECT zip_code, borough, number_of_persons_killed
+FROM crashes_deaths_top_zips
+ORDER BY crashes DESC
+LIMIT 1
+"""
 
 [[report]]
-question = "How many complaints came in each day, citywide?"
+question = "What day, citywide, had the most car crashes?"
 sql = """
-SELECT created_day, sum(complaints)::INT AS complaints
-FROM heat_by_borough_day
-GROUP BY created_day
-ORDER BY created_day
+SELECT crash_date, sum(crashes)::INT AS crashes
+FROM crashes_by_zip_day
+GROUP BY crash_date
+ORDER BY crash_date
 """
 
