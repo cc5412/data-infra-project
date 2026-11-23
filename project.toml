@@ -11,9 +11,10 @@
 #  To see any API's columns before filling this in, run:  python pipeline.py --preview
 # =============================================================================
 
-[project]
-name = "car_crashes"        -- a short name: lowercase, no spaces
+#short name: lowercase, no spaces
 
+[project]
+name = "car_crashes"
 
 # -----------------------------------------------------------------------------
 # 1. SOURCE: where the data comes from
