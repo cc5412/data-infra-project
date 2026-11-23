@@ -165,7 +165,10 @@ ORDER BY total_crashes DESC
 [[tables]]
 name = "crashes_deaths_top_zips"
 sql  = """
-SELECT zip_code, borough, SUM(number_of_persons_killed) AS total_fatalities, count(*) AS crashes
+SELECT zip_code,
+        borough,
+        SUM(number_of_persons_killed) AS total_fatalities,
+        count(*) AS crashes
 FROM car_crashes
 WHERE number_of_persons_killed > 0
 GROUP BY borough, zip_code
