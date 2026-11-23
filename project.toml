@@ -117,8 +117,6 @@ SELECT CASE
 #    Next week's AI app answers questions from these tables.
 # -----------------------------------------------------------------------------
 
-# (a) The clean table: one row per complaint
-[[tables]]
 # (a) The clean table: one row per crash
 [[tables]]
 name = "car_crashes"
@@ -167,11 +165,11 @@ ORDER BY total_crashes DESC
 [[tables]]
 name = "crashes_deaths_top_zips"
 sql  = """
-SELECT zip_code, borough, number_of_persons_killed, count(*) AS crashes
+SELECT zip_code, borough, SUM(number_of_persons_killed) AS total_fatalities, count(*) AS crashes
 FROM car_crashes
 WHERE number_of_persons_killed > 0
 GROUP BY zip_code, borough
-ORDER BY number_of_persons_killed DESC
+ORDER BY total_fatalities DESC
 LIMIT 10
 """
 
@@ -182,11 +180,12 @@ LIMIT 10
 #    tables above. The answers print in the run log. Try your findings here!
 # -----------------------------------------------------------------------------
 [[report]]
-question = "Which zip code has the most motor vehicle collisions?"
+question = "Which boroughs have the most motor vehicle collisions?"
 sql = """
-SELECT zip_code, total_crashes, avg_per_day, pct_of_city
+SELECT borough, total_crashes, avg_per_day, pct_of_city
 FROM crashes_borough_summary
 ORDER BY total_crashes DESC
+LIMIT 3
 """
 
 [[report]]
