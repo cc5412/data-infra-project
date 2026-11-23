@@ -5,10 +5,10 @@
 
 ## Links
 
-**A successful run of your pipeline** (Actions tab → the green run → copy the address): https://github.com/cc5412/data-infra-project/actions/runs/45147629361
+**A successful run of your pipeline** (Actions tab → the green run → copy the address): https://github.com/cc5412/data-infra-project/actions/runs/45149741200
 **A deliberately failed run** (Run workflow with "Break the data on purpose" ticked → the red run → copy the address):
 
-**Your table on MotherDuck:** `course.main.____________`
+**Your table on MotherDuck:** `course.main.car_crashes`
 
 ## Reflections
 

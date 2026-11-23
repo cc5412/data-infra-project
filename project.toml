@@ -197,7 +197,7 @@ sql = """
 SELECT zip_code, borough, total_fatalities
 FROM crashes_deaths_top_zips
 ORDER BY crashes DESC
-LIMIT 1
+LIMIT 10
 """
 
 [[report]]
