@@ -1,51 +1,92 @@
-# Data dictionary
+# Data dictionary · EXAMPLE (NYC 311 heat complaints, class demo)
 
-This file describes the tables your pipeline publishes. Copy the Columns section once per table. In Session 5, an AI model will read it to write SQL against your data, so a clear description here means better answers there. Write it for a smart reader who has never seen your data.
+<!-- A filled-in version of data_dictionary.md. Example values are illustrative. -->
 
-## The table
+## Part 1 · About the project
 
-**Table name on MotherDuck:** `course.main.car_crashes`
+**Project:** Heat and hot water complaints made to NYC 311 in the last 7 days, by borough and ZIP code.
 
-**One row is:** (the grain, e.g. "one country in one year") 
-One row is a motor vehicle collision as reported by the NYPD.
+**Source:** NYC Open Data, 311 Service Requests (dataset erm2-nwe9), https://data.cityofnewyork.us/resource/erm2-nwe9.json
 
-**Source:** (API name and link to its documentation)
-Motor Vehicle Collisions - Crashes
-Documentation: https://dev.socrata.com/foundry/data.cityofnewyork.us/h9gi-nx95
-Request URL: https://data.cityofnewyork.us/resource/h9gi-nx95.json
+**Refreshed:** Daily at about 6 AM New York time by GitHub Actions. Each run replaces every table with the last 7 days of complaints, so older days drop off.
 
-**Refreshed:** (e.g. "daily at 6 AM New York time by GitHub Actions; a full snapshot of the last 14 days")
-Daily at 11:17 UTC (about 6 AM in New York by GitHub Actions. It captures data from the last 30 days.
+**Removed on purpose:** Complaints with borough "UNSPECIFIED", because they can't be placed in a borough. Only complaint type "HEAT/HOT WATER" is kept.
 
-**Removed on purpose:** (rows the pipeline drops, and why, e.g. "regions like 'World', so averages count countries only")
-Zip codes that are 'unspecified.'
+---
 
-## Columns
+## Part 2 · The tables
+
+### Table 1: `course.main.heat_complaints`
+
+**What it is:** The clean table
+
+**One row is:** one complaint
+
+**Built from:** raw
 
 | Column | Type | What it means | Units or allowed values | Example |
 |---|---|---|---|---|
-| crash_date | datetime64[us]| date of the car crash| dates (YYYY-MM-DD)| 2026-10-08 |
-| borough    | str| NYC borough| BRONX, BROOKLYN, MANHATTAN, QUEENS, STATEN ISLAND, or NULL| BROOKLYN|
-|  zip_code  | str| 5-digit zip code| 5-digit zip code within NYC ranges (plus a few from Long Island)| 11207|
-| latitude        | float64| Y coordinate| Decimal that is appropriate for NYC area.| 40.660378|
-| longitude                | float64 | X coordinate | Negative decimal that is appropriate for NYC area. | -73.895020  |
-| number_of persons_injured                         | int64        | Count of people injured in the car crash.             | Integer >= 0                                                   | 1            |
-| number_of persons_killed                                                  | int64        | Count of people killed in the car crash.             | Integer >= 0                                                    | 0            |
-| number_of pedestrians_killed                                                                          | int64        | Count of pedestrians killed in the car crash.             | Integer >= 0                                                   | 2            |
-| number_of cyclist_killed                                                                                                      | int64        | Count of cyclists killed in the car crash.             | Integer >= 0                                                   | 3            |
-| number_of motorist_killed                                                                                                                              | int64        | Count of people in the car killed in the car crash.             | Integer >= 0                                                   | 1            |
-| collection_id                                                                                                                                                       | str        | Unique identified for reported crash events.             | A long string of jumbled numbers and letters.                                                   | c901103dccb4b9bd9b3e31e5e16be503            |
-| on_street_name                                                                                                                                                                    | str        | Name of the street on which the crash occurred.             | Street names, meaning full words.                                                   | 47 STREET            |
+| unique_key | text | The city's ID for the complaint | unique; never repeated | 63012345 |
+| created_date | timestamp | When the complaint was made | New York time | 2026-11-15 21:42:00 |
+| created_day | date | The day the complaint was made | date only | 2026-11-15 |
+| borough | text | Borough of the building | BRONX, BROOKLYN, MANHATTAN, QUEENS, STATEN ISLAND | BRONX |
+| incident_zip | text | ZIP code of the building | 5 digits; can be empty | 10467 |
 
+### Table 2: `course.main.heat_by_borough_day`
 
-## What this data can't tell you
+**What it is:** A trend
 
-(2–3 limits: years not covered, places missing, how values are estimated, anything a user might wrongly assume)
+**One row is:** one borough on one day
 
-Car crashes beyond the last 30 days. The reason for the car crash. The time of the crashes.
+**Built from:** heat_complaints
 
-## Example questions it can answer
+| Column | Type | What it means | Units or allowed values | Example |
+|---|---|---|---|---|
+| borough | text | Borough | the five boroughs | BROOKLYN |
+| created_day | date | Day | last 7 days | 2026-11-15 |
+| complaints | integer | Heat complaints in that borough that day | count | 412 |
 
-1. What day in the last month had the most (or least) deaths due to car crashes in NYC?
-2. What borough had the most car crashes in the last 30 days?
-3. What zip codes had bikers die in car crashes in the last 30 days?
+### Table 3: `course.main.heat_borough_summary`
+
+**What it is:** Key metrics
+
+**One row is:** one borough, over the last 7 days
+
+**Built from:** heat_complaints
+
+| Column | Type | What it means | Units or allowed values | Example |
+|---|---|---|---|---|
+| borough | text | Borough | the five boroughs | BRONX |
+| total_complaints | integer | All heat complaints in the 7 days | count | 3,420 |
+| avg_per_day | number | Average complaints per day | count per day, 1 decimal | 488.6 |
+| pct_of_city | number | This borough's share of all complaints in the city | percent, 0–100; the five add to 100 | 31.4 |
+| zip_codes_affected | integer | ZIP codes with at least one complaint | count | 25 |
+
+### Table 4: `course.main.heat_top_zips`
+
+**What it is:** A ranking
+
+**One row is:** one ZIP code (top 20 only)
+
+**Built from:** heat_complaints
+
+| Column | Type | What it means | Units or allowed values | Example |
+|---|---|---|---|---|
+| incident_zip | text | ZIP code | 5 digits | 10467 |
+| borough | text | Borough the ZIP is in | the five boroughs | BRONX |
+| complaints | integer | Heat complaints in that ZIP in the 7 days | count | 298 |
+
+---
+
+## Part 3 · What this data can't tell you
+
+1. Only the last 7 days. It can't show last winter or compare years.
+2. A complaint is a call, not a confirmed problem. Several tenants in one building can complain about the same outage.
+3. Counts aren't adjusted for population or number of buildings, so bigger boroughs will naturally have more.
+
+## Part 4 · Example questions it can answer
+
+1. Which borough had the most heat complaints this week? (heat_borough_summary)
+2. What share of complaints came from the Bronx? (heat_borough_summary)
+3. Which five ZIP codes were hardest hit? (heat_top_zips)
+4. Were complaints rising or falling over the week in Brooklyn? (heat_by_borough_day)
